@@ -2,7 +2,8 @@
 
 @interface MigrateLocalStorage : CDVPlugin {}
 
-- (BOOL) copyFrom:(NSString*)src to:(NSString*)dest;
-- (void) migrateLocalStorage;
+- (BOOL) move:(NSString*)src to:(NSString*)dest;
+- (BOOL) migrateLocalStorage;
+- (void) pluginInitialize;
 
 @end
