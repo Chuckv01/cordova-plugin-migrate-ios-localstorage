@@ -1,37 +1,65 @@
-# Migrate LocalStorage
+# Cordova Plugin: Migrate LocalStorage
 
-This plugin can be used in conjunction with
-[cordova-plugin-wkwebview-engine](https://github.com/apache/cordova-plugin-wkwebview-engine)
-to persist LocalStorage data when migrating from `UIWebView` to `WKWebView`. All related
-files will be copied over automatically during startup so the user can simply pick up where they
-left of.
+A Cordova plugin that migrates localStorage data from UIWebView to WKWebView on iOS. This plugin is useful when transitioning from UIWebView to WKWebView in Cordova iOS applications.
 
-## How to use
+## Description
 
-Simply add the plugin to your cordova project via the cli:
-```sh
-cordoa plugin add cordova-plugin-migrate-localstorage
+When migrating a Cordova app from UIWebView to WKWebView, localStorage data is stored in different locations, which can cause users to lose their data during the transition. This plugin handles the migration of localStorage data from the UIWebView storage location to the WKWebView storage location.
+
+## Installation
+
+```bash
+cordova plugin add cordova-plugin-migrate-localstorage
 ```
 
-## Notes
+Or directly from GitHub:
 
-- LocalStorage files are only copied over once and only if no LocalStorage data exists for `WKWebView`
-yet. This means that if you've run your app with `WKWebView` before this plugin will likely not work.
-To test if data is migrated over correctly:
-    1. Delete the app from your emulator or device
-    2. Remove the `cordova-plugin-wkwebview-engine` and `cordova-plugin-migrate-localstorage` plugins
-    3. Run your app and store some data in LocalStorage
-    4. Add both plugins back
-    5. Run your app again. Your data should still be there!
+```bash
+cordova plugin add https://github.com/maklesoft/cordova-plugin-migrate-localstorage.git
+```
 
-- Once the data is copied over, it is not being synced back to `UIWebView` so any changes done in
-`WKWebView` will not persist should you ever move back to `UIWebView`. If you have a problem with this,
-let us know in the issues section!
+## Usage
 
-## Background
+The plugin provides a simple API to migrate localStorage data. Call the migrate method early in your app initialization:
 
-One of the drawbacks of migrating Cordova apps to `WKWebView` is that LocalStorage data does
-not persist between the two. Unfortunately,
-[cordova-plugin-wkwebview-engine](https://github.com/apache/cordova-plugin-wkwebview-engine)
-does not offer a solution for this out of the box (see
-https://issues.apache.org/jira/browse/CB-11974?jql=project%20%3D%20CB%20AND%20labels%20%3D%20wkwebview-known-issues).
+```javascript
+document.addEventListener('deviceready', function() {
+  if (cordova.platformId === 'ios') {
+    cordova.plugins.MigrateLocalStorage.migrate(
+      function(success) {
+        console.log('Migration completed successfully: ' + success);
+      },
+      function(error) {
+        console.error('Migration failed: ' + error);
+      }
+    );
+  }
+}, false);
+```
+
+### API
+
+`migrate(successCallback, errorCallback)`
+
+Migrates localStorage data from UIWebView to WKWebView.
+
+- successCallback: Function called when migration completes (receives boolean indicating success)
+- errorCallback: Function called when migration fails (receives error message)
+
+## How it Works
+
+1. The plugin checks if localStorage already has data in WKWebView format
+2. If not, it initializes localStorage with a marker
+3. It polls until storage is confirmed ready
+4. Then it copies the SQLite database files from the UIWebView location to the WKWebView location
+5. After migration, it forces a reload of localStorage
+
+## Requirements
+
+- Cordova iOS 4.0.0+
+- iOS 9.0+
+- Capacitor
+
+## License
+
+This project is licensed under the Apache License 2.0.
