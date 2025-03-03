@@ -43,8 +43,8 @@ document.addEventListener('deviceready', function() {
 
 Migrates localStorage data from UIWebView to WKWebView.
 
-- successCallback: Function called when migration completes (receives boolean indicating success)
-- errorCallback: Function called when migration fails (receives error message)
+- *successCallback*: Function called when migration completes (receives boolean indicating success)
+- *errorCallback*: Function called when migration fails (receives error message)
 
 ## How it Works
 
