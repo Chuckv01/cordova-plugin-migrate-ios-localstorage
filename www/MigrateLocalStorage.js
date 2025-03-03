@@ -3,8 +3,8 @@ var exec = require('cordova/exec');
 var MigrateLocalStorage = {
   migrate: function (successCallback, errorCallback) {
     try {
-      // Check if localStorage already has data (besides our initialization keys)
-      if (localStorage.length > 1) {
+      // Check if localStorage already has data
+      if (localStorage.length > 0) {
         console.log('MigrateLocalStorage: localStorage already has data, skipping migration');
         successCallback(true);
         return;
@@ -17,7 +17,7 @@ var MigrateLocalStorage = {
       // Begin polling to check when storage is ready
       this._pollForStorageReady(initValue, function (isReady) {
         if (isReady) {
-          console.log('MigrateLocalStorage: ocalStorage is ready, proceeding with migration');
+          console.log('MigrateLocalStorage: localStorage is ready, proceeding with migration');
           localStorage.removeItem('__init');
 
           // Call the native migration function
