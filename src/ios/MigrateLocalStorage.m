@@ -29,29 +29,29 @@
 }
 
 /**
- * Checks if localStorage file should be migrated. If so, migrate.
- * NOTE: Will only migrate data if there is no localStorage data for WKWebView. This only happens when WKWebView is set up for the first time.
+ * Checks if legacy localStorage files should be migrated. If found, they are migrated to the new WKWebView location.
  */
 - (BOOL)migrateLocalStorage
 {
-  NSString* original = [self resolveOriginalLocalStorageFile];
-  NSString* target = [self resolveTargetLocalStorageFile];
-  NSString* targetFile = [target stringByAppendingPathComponent:@"localstorage.sqlite3"];
-  
-  NSLog(@"%@ 📦 original %@", TAG, original);
-  NSLog(@"%@ 🏹 target %@", TAG, targetFile);
-  
   NSFileManager* fileManager = [NSFileManager defaultManager];
+  NSString* original = [self resolveOriginalLocalStorageFile];
+  
+  NSLog(@"%@ Searched for legacy localStorage files at %@", TAG, original);
   
   // Check if original file exists
   if (![fileManager fileExistsAtPath:original]) {
-    NSLog(@"%@ ⚠️ Original localStorage file not found. Nothing to migrate.", TAG);
+    NSLog(@"%@ Legacy localStorage file not found. Nothing to migrate.", TAG);
     return NO;
   }
   
-  // Remove existing empty sqlite files (created by initialization)
+  NSString* target = [self resolveTargetLocalStorageFile];
+  NSString* targetFile = [target stringByAppendingPathComponent:@"localstorage.sqlite3"];
+  
+  NSLog(@"%@ Searched for target localStorage files to overwrite at %@", TAG, targetFile);
+  
+  // Remove existing empty sqlite files (created by this plugin)
   if ([fileManager fileExistsAtPath:targetFile]) {
-    NSLog(@"%@ 🗑️ Removing existing initialization files to replace with migration data", TAG);
+    NSLog(@"%@ Removing existing empty initialization files to replace with migration data", TAG);
     [self deleteFile:targetFile];
     [self deleteFile:[targetFile stringByAppendingString:@"-shm"]];
     [self deleteFile:[targetFile stringByAppendingString:@"-wal"]];
