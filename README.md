@@ -27,7 +27,7 @@ import 'cordova-plugin-migrate-ios-localstorage';
 ...
 
 document.addEventListener('deviceready', function() {
-  window.MigrateLocalStorage.migrate()
+  (window as any).cordova.plugins.MigrateLocalStorage.migrate();
     .then(success => {
       console.log('Migration completed successfully: ' + success);
     })
