@@ -35,20 +35,20 @@
 {
   NSFileManager* fileManager = [NSFileManager defaultManager];
   NSString* original = [self resolveOriginalLocalStorageFile];
-  
+
   NSLog(@"%@ Searched for legacy localStorage files at %@", TAG, original);
-  
+
   // Check if original file exists
   if (![fileManager fileExistsAtPath:original]) {
     NSLog(@"%@ Legacy localStorage file not found. Nothing to migrate.", TAG);
     return NO;
   }
-  
+
   NSString* target = [self resolveTargetLocalStorageFile];
   NSString* targetFile = [target stringByAppendingPathComponent:@"localstorage.sqlite3"];
-  
+
   NSLog(@"%@ Searched for target localStorage files to overwrite at %@", TAG, targetFile);
-  
+
   // Remove existing empty sqlite files (created by this plugin)
   if ([fileManager fileExistsAtPath:targetFile]) {
     NSLog(@"%@ Deleting empty target sqlite files. These are being replaced with the migrated sqlite files", TAG);
@@ -56,7 +56,7 @@
     [self deleteFile:[targetFile stringByAppendingString:@"-shm"]];
     [self deleteFile:[targetFile stringByAppendingString:@"-wal"]];
   }
-  
+
   // Ensure target directory exists
   if (![fileManager createDirectoryAtPath:target
               withIntermediateDirectories:YES
@@ -65,14 +65,14 @@
     NSLog(@"%@ Failed to create target directory", TAG);
     return NO;
   }
-  
+
   // Copy the files with WKWebView naming convention
   BOOL success1 = [self copy:original to:targetFile];
   BOOL success2 = [self copy:[original stringByAppendingString:@"-shm"]
                          to:[targetFile stringByAppendingString:@"-shm"]];
   BOOL success3 = [self copy:[original stringByAppendingString:@"-wal"]
                          to:[targetFile stringByAppendingString:@"-wal"]];
-  
+
   NSLog(@"%@ Copy status for localstorage.sqlite3 files: %d %d %d", TAG, success1, success2, success3);
   return success1 && success2 && success3;
 }
@@ -97,19 +97,19 @@
 - (BOOL) deleteFile:(NSString*)path
 {
     NSFileManager* fileManager = [NSFileManager defaultManager];
-    
+
     // If file doesn't exist, consider deletion successful
     if (![fileManager fileExistsAtPath:path]) {
         return YES;  // Nothing to delete
     }
-    
+
     NSError* error = nil;
     BOOL result = [fileManager removeItemAtPath:path error:&error];
-    
+
     if (!result) {
         NSLog(@"%@ Failed to delete file: %@ (Error: %@)", TAG, path, error);
     }
-    
+
     return result;
 }
 
@@ -119,13 +119,13 @@
 - (BOOL) copy:(NSString*)src to:(NSString*)dest
 {
     NSFileManager* fileManager = [NSFileManager defaultManager];
-    
+
     // Check if source file exists
     if (![fileManager fileExistsAtPath:src]) {
         NSLog(@"%@ Source file does not exist: %@", TAG, src);
         return NO;
     }
-    
+
     // Always delete destination file if it exists
     if ([fileManager fileExistsAtPath:dest]) {
         NSLog(@"%@ Target file exists, removing: %@", TAG, dest);
@@ -134,7 +134,7 @@
             return NO;
         }
     }
-    
+
     // Create path to dest
     NSString* destDir = [dest stringByDeletingLastPathComponent];
     NSError* dirError = nil;
@@ -145,17 +145,17 @@
         NSLog(@"%@ Error creating target directory %@: %@", TAG, destDir, dirError);
         return NO;
     }
-    
+
     // Copy src to dest
     NSError* copyError = nil;
     BOOL result = [fileManager copyItemAtPath:src toPath:dest error:&copyError];
-    
+
     if (!result) {
         NSLog(@"%@ Failed to copy %@ to %@: %@", TAG, src, dest, copyError);
     } else {
         NSLog(@"%@ Successfully copied %@ to %@", TAG, src, dest);
     }
-    
+
     return result;
 }
 
@@ -167,7 +167,7 @@
   NSString* appLibraryFolder = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0];
   NSString* original;
   NSString* originalLSFilePath = [appLibraryFolder stringByAppendingPathComponent:ORIG_LS_FILEPATH];
-  
+
   if ([[NSFileManager defaultManager] fileExistsAtPath:originalLSFilePath]) {
     original = originalLSFilePath;
   } else {
@@ -183,8 +183,8 @@
   sqlite3 *database;
   if (sqlite3_open([sqlitePath UTF8String], &database) == SQLITE_OK) {
     sqlite3_stmt *statement;
-    const char *query = "SELECT value FROM ItemTable WHERE key = '__init'";
-    
+    const char *query = "SELECT value FROM ItemTable WHERE key = '__MigrateLocalStorageInit'";
+
     if (sqlite3_prepare_v2(database, query, -1, &statement, NULL) == SQLITE_OK) {
       if (sqlite3_step(statement) == SQLITE_ROW) {
         sqlite3_finalize(statement);
@@ -204,7 +204,7 @@
 - (NSString*)resolveTargetLocalStorageFile {
   NSFileManager* fileManager = [NSFileManager defaultManager];
   NSString* appLibraryFolder = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-  
+
   // Search locations in order of preference
   NSArray* potentialBasePaths = @[
     [appLibraryFolder stringByAppendingPathComponent:@"WebKit/WebsiteData/Default"],
@@ -212,32 +212,32 @@
      appLibraryFolder,
      [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleIdentifier"]]
   ];
-  
+
   // Check each potential base path
   for (NSString* basePath in potentialBasePaths) {
     if (![fileManager fileExistsAtPath:basePath]) {
       continue;
     }
-    
+
     NSError* error = nil;
     NSArray* contents = [fileManager contentsOfDirectoryAtPath:basePath error:&error];
-    
+
     if (error || contents.count == 0) {
       continue;
     }
-    
+
     // Check each hash directory
     for (NSString* hashDir in contents) {
       if ([hashDir hasPrefix:@"."]) continue;
-      
+
       NSString* outerHashPath = [basePath stringByAppendingPathComponent:hashDir];
       NSString* innerHashPath = [outerHashPath stringByAppendingPathComponent:hashDir];
       NSString* lsPath = [innerHashPath stringByAppendingPathComponent:@"LocalStorage"];
       NSString* sqlitePath = [lsPath stringByAppendingPathComponent:@"localstorage.sqlite3"];
-      
+
       if ([fileManager fileExistsAtPath:sqlitePath]) {
         NSLog(@"%@ Checking SQLite file: %@", TAG, sqlitePath);
-        
+
         // Check if this SQLite file contains our initialization key
         if ([self sqliteFileContainsInitKey:sqlitePath]) {
           NSLog(@"%@ Found active WKWebView localStorage at: %@", TAG, lsPath);
@@ -246,27 +246,27 @@
       }
     }
   }
-  
+
   // If no directory with our marker was found, fallback to the first valid directory
   for (NSString* basePath in potentialBasePaths) {
     if (![fileManager fileExistsAtPath:basePath]) continue;
-    
+
     NSArray* contents = [fileManager contentsOfDirectoryAtPath:basePath error:nil];
-    
+
     for (NSString* hashDir in contents) {
       if ([hashDir hasPrefix:@"."]) continue;
-      
+
       NSString* path = [[[basePath stringByAppendingPathComponent:hashDir]
                          stringByAppendingPathComponent:hashDir]
                         stringByAppendingPathComponent:@"LocalStorage"];
-      
+
       if ([fileManager fileExistsAtPath:[path stringByAppendingPathComponent:@"localstorage.sqlite3"]]) {
         NSLog(@"%@ No directory with marker found, using first valid directory: %@", TAG, path);
         return path;
       }
     }
   }
-  
+
   NSLog(@"%@ Could not find any WKWebView localStorage directory", TAG);
   return nil;
 }

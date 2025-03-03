@@ -12,13 +12,12 @@ var MigrateLocalStorage = {
 
       console.log('MigrateLocalStorage: Setting initialization marker in localStorage');
       var initValue = 'init-' + Date.now();
-      localStorage.setItem('__init', initValue);
+      localStorage.setItem('__MigrateLocalStorageInit', initValue);
 
       // Begin polling to check when storage is ready
       this._pollForStorageReady(initValue, function (isReady) {
         if (isReady) {
           console.log('MigrateLocalStorage: localStorage is ready, proceeding with migration');
-          localStorage.removeItem('__init');
 
           // Call the native migration function
           exec(function (success) {
@@ -54,7 +53,7 @@ var MigrateLocalStorage = {
       attempts++;
 
       // Get the current value and check if it matches
-      var currentValue = localStorage.getItem('__init');
+      var currentValue = localStorage.getItem('__MigrateLocalStorageInit');
       console.log('MigrateLocalStorage: Checking localStorage readiness (attempt ' + attempts + '): ' + currentValue);
 
       if (currentValue === expectedValue) {
