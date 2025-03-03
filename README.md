@@ -1,6 +1,6 @@
 # Cordova Plugin: Migrate LocalStorage
 
-A Cordova plugin that migrates localStorage data from UIWebView to WKWebView on iOS. This plugin is useful when transitioning from UIWebView to WKWebView in Cordova iOS applications.
+A Cordova plugin that migrates localStorage data from UIWebView to WKWebView on iOS. This plugin is useful when transitioning from UIWebView to WKWebView in Capacitor or Cordova iOS applications.
 
 ## Description
 
