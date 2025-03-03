@@ -51,7 +51,7 @@
   
   // Remove existing empty sqlite files (created by this plugin)
   if ([fileManager fileExistsAtPath:targetFile]) {
-    NSLog(@"%@ Removing existing empty initialization files to replace with migration data", TAG);
+    NSLog(@"%@ Deleting empty target sqlite files. These are being replaced with the migrated sqlite files", TAG);
     [self deleteFile:targetFile];
     [self deleteFile:[targetFile stringByAppendingString:@"-shm"]];
     [self deleteFile:[targetFile stringByAppendingString:@"-wal"]];
