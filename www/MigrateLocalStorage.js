@@ -28,14 +28,7 @@ var MigrateLocalStorage = {
             exec(function(success) {
               if (success) {
                 console.log('MigrateLocalStorage: Migration successful');
-                // Force WKWebView to reload localStorage data
-                setTimeout(() => {
-                  console.log('MigrateLocalStorage: Forcing reload of localStorage');
-                  var refreshKey = '__refresh_' + Date.now();
-                  localStorage.setItem(refreshKey, 'true');
-                  localStorage.removeItem(refreshKey);
-                  resolve(success);
-                }, 1000);
+                resolve(success);
               } else {
                 resolve(false);
               }

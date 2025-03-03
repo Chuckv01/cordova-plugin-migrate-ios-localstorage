@@ -22,7 +22,7 @@ cordova plugin add https://github.com/Chuckv01/cordova-plugin-migrate-ios-locals
 
 The plugin provides a simple API to migrate localStorage data. Call the migrate method early in your app initialization:
 
-```javascript
+```typescript
 import 'cordova-plugin-migrate-ios-localstorage';
 ...
 
@@ -50,8 +50,7 @@ Returns a Promise that resolves to a boolean indicating success or rejects with 
 1. The plugin checks if localStorage already has data in WKWebView format
 2. If not, it initializes localStorage with a marker
 3. It polls until storage is confirmed ready
-4. Then it copies the SQLite database files from the UIWebView location to the WKWebView location
-5. After migration, it forces a reload of localStorage
+4. Then it copies the SQLite database records from the UIWebView location to the WKWebView location
 
 ## Requirements
 

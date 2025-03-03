@@ -18,145 +18,141 @@
  */
 - (void)migrate:(CDVInvokedUrlCommand*)command
 {
-  [self.commandDelegate runInBackground:^{
-    NSLog(@"%@ Starting localStorage migration", TAG);
-    BOOL success = [self migrateLocalStorage];
-    // Return result to JavaScript
-    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                  messageAsBool:success];
-    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-  }];
-}
-
-/**
- * Checks if legacy localStorage files should be migrated. If found, they are migrated to the new WKWebView location.
- */
-- (BOOL)migrateLocalStorage
-{
-  NSFileManager* fileManager = [NSFileManager defaultManager];
-  NSString* original = [self resolveOriginalLocalStorageFile];
-
-  NSLog(@"%@ Searched for legacy localStorage files at %@", TAG, original);
-
-  // Check if original file exists
-  if (![fileManager fileExistsAtPath:original]) {
-    NSLog(@"%@ Legacy localStorage file not found. Nothing to migrate.", TAG);
-    return NO;
-  }
-
-  NSString* target = [self resolveTargetLocalStorageFile];
-  NSString* targetFile = [target stringByAppendingPathComponent:@"localstorage.sqlite3"];
-
-  NSLog(@"%@ Searched for target localStorage files to overwrite at %@", TAG, targetFile);
-
-  // Remove existing empty sqlite files (created by this plugin)
-  if ([fileManager fileExistsAtPath:targetFile]) {
-    NSLog(@"%@ Deleting empty target sqlite files. These are being replaced with the migrated sqlite files", TAG);
-    [self deleteFile:targetFile];
-    [self deleteFile:[targetFile stringByAppendingString:@"-shm"]];
-    [self deleteFile:[targetFile stringByAppendingString:@"-wal"]];
-  }
-
-  // Ensure target directory exists
-  if (![fileManager createDirectoryAtPath:target
-              withIntermediateDirectories:YES
-                               attributes:nil
-                                    error:nil]) {
-    NSLog(@"%@ Failed to create target directory", TAG);
-    return NO;
-  }
-
-  // Copy the files with WKWebView naming convention
-  BOOL success1 = [self copy:original to:targetFile];
-  BOOL success2 = [self copy:[original stringByAppendingString:@"-shm"]
-                         to:[targetFile stringByAppendingString:@"-shm"]];
-  BOOL success3 = [self copy:[original stringByAppendingString:@"-wal"]
-                         to:[targetFile stringByAppendingString:@"-wal"]];
-
-  NSLog(@"%@ Copy status for localstorage.sqlite3 files: %d %d %d", TAG, success1, success2, success3);
-  return success1 && success2 && success3;
-}
-
-- (void)debugLogDirectoryStructure
-{
-  NSFileManager* fileManager = [NSFileManager defaultManager];
-  NSString* appLibraryFolder = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-  NSString* webkitPath = [appLibraryFolder stringByAppendingPathComponent:@"WebKit"];
-  NSLog(@"%@ Checking WebKit path: %@", TAG, webkitPath);
-  NSError* error = nil;
-  NSArray* contents = [fileManager contentsOfDirectoryAtPath:webkitPath error:&error];
-  NSLog(@"%@ WebKit contents: %@", TAG, contents);
-  if (error) {
-    NSLog(@"%@ Error reading WebKit directory: %@", TAG, error);
-  }
-}
-
-/**
- * Deletes file if it exists
- */
-- (BOOL) deleteFile:(NSString*)path
-{
-    NSFileManager* fileManager = [NSFileManager defaultManager];
-
-    // If file doesn't exist, consider deletion successful
-    if (![fileManager fileExistsAtPath:path]) {
-        return YES;  // Nothing to delete
-    }
-
-    NSError* error = nil;
-    BOOL result = [fileManager removeItemAtPath:path error:&error];
-
-    if (!result) {
-        NSLog(@"%@ Failed to delete file: %@ (Error: %@)", TAG, path, error);
-    }
-
-    return result;
-}
-
-/**
- * Copies an item from src to dest, replacing dest if it exists
- */
-- (BOOL) copy:(NSString*)src to:(NSString*)dest
-{
-    NSFileManager* fileManager = [NSFileManager defaultManager];
-
-    // Check if source file exists
-    if (![fileManager fileExistsAtPath:src]) {
-        NSLog(@"%@ Source file does not exist: %@", TAG, src);
-        return NO;
-    }
-
-    // Always delete destination file if it exists
-    if ([fileManager fileExistsAtPath:dest]) {
-        NSLog(@"%@ Target file exists, removing: %@", TAG, dest);
-        if (![self deleteFile:dest]) {
-            NSLog(@"%@ Failed to remove existing target file, aborting copy", TAG);
-            return NO;
+    // Start background work
+    [self.commandDelegate runInBackground:^{
+        NSLog(@"%@ Starting localStorage migration", TAG);
+        
+        // Extract data in background thread
+        NSString* original = [self resolveOriginalLocalStorageFile];
+        NSMutableDictionary* migrationData = nil;
+        
+        if (original) {
+            migrationData = [self extractDataFromSQLite:original];
+            NSLog(@"%@ Found %lu localStorage items to migrate", TAG, (unsigned long)migrationData.count);
         }
+        
+        if (!migrationData || migrationData.count == 0) {
+            [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                                    messageAsString:@"No data to migrate"]
+                                       callbackId:command.callbackId];
+            return;
+        }
+        
+        // Convert each value to base64 to avoid any escaping issues
+        NSMutableDictionary *base64Data = [NSMutableDictionary dictionaryWithCapacity:migrationData.count];
+        for (NSString *key in migrationData) {
+            NSString *value = migrationData[key];
+            NSData *valueData = [value dataUsingEncoding:NSUTF8StringEncoding];
+            NSString *base64Value = [valueData base64EncodedStringWithOptions:0];
+            [base64Data setObject:base64Value forKey:key];
+        }
+        
+        // Convert entire dictionary to JSON
+        NSError *jsonError;
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:base64Data options:0 error:&jsonError];
+        if (jsonError) {
+            NSLog(@"%@ Error creating JSON: %@", TAG, jsonError);
+            [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                                    messageAsString:@"JSON serialization error"]
+                                       callbackId:command.callbackId];
+            return;
+        }
+        
+        NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        
+        // Create JavaScript with the original code
+        NSString *jsCode = [NSString stringWithFormat:@"(function() {\n"
+                           "  var migrationCount = 0;\n"
+                           "  var base64Data = %@;\n"
+                           "  \n"
+                           "  // Function to decode base64\n"
+                           "  function base64ToUtf8(base64) {\n"
+                           "    try {\n"
+                           "      return decodeURIComponent(escape(window.atob(base64)));\n"
+                           "    } catch (e) {\n"
+                           "      console.error('Base64 decode error:', e);\n"
+                           "      return '';\n"
+                           "    }\n"
+                           "  }\n"
+                           "  \n"
+                           "  // Process each item\n"
+                           "  for (var key in base64Data) {\n"
+                           "    try {\n"
+                           "      var decodedValue = base64ToUtf8(base64Data[key]);\n"
+                           "      localStorage.setItem(key, decodedValue);\n"
+                           "      migrationCount++;\n"
+                           "    } catch (e) {\n"
+                           "      console.error('Error migrating key ' + key + ':', e);\n"
+                           "    }\n"
+                           "  }\n"
+                           "  \n"
+                           "  window.dispatchEvent(new CustomEvent('localStorageMigrationComplete', {\n"
+                           "    detail: { success: true, migrated: migrationCount }\n"
+                           "  }));\n"
+                           "  return migrationCount;\n"
+                           "})();", jsonString];
+        
+        // Move to main thread for WKWebView JavaScript execution
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.webViewEngine evaluateJavaScript:jsCode completionHandler:^(id result, NSError *error) {
+                if (error) {
+                    NSLog(@"%@ JavaScript migration error: %@", TAG, error);
+                    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                              messageAsString:[error localizedDescription]]
+                                               callbackId:command.callbackId];
+                } else {
+                    NSInteger itemsMigrated = [result integerValue];
+                    BOOL success = (itemsMigrated > 0);
+                    NSLog(@"%@ Migration completed via JavaScript: %ld items", TAG, (long)itemsMigrated);
+                    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                                              messageAsBool:success]
+                                               callbackId:command.callbackId];
+                }
+            }];
+        });
+    }];
+}
+
+/**
+* Extracts all localStorage key-value pairs from a SQLite database
+*/
+- (NSMutableDictionary*)extractDataFromSQLite:(NSString*)sqlitePath {
+    NSMutableDictionary* data = [NSMutableDictionary dictionary];
+    sqlite3 *database;
+    
+    if (sqlite3_open_v2([sqlitePath UTF8String], &database, SQLITE_OPEN_READONLY, NULL) == SQLITE_OK) {
+        // Read data, handling binary correctly
+        sqlite3_stmt *statement;
+        const char *query = "SELECT key, value FROM ItemTable";
+        
+        if (sqlite3_prepare_v2(database, query, -1, &statement, NULL) == SQLITE_OK) {
+            while (sqlite3_step(statement) == SQLITE_ROW) {
+                const unsigned char *keyText = sqlite3_column_text(statement, 0);
+                int keyLength = sqlite3_column_bytes(statement, 0);
+                
+                const void *valueData = sqlite3_column_blob(statement, 1);
+                int valueLength = sqlite3_column_bytes(statement, 1);
+                
+                if (keyText && valueData && valueLength > 0) {
+                    NSString *key = [[NSString alloc] initWithBytes:keyText
+                                                             length:keyLength
+                                                           encoding:NSUTF8StringEncoding];
+                    
+                    NSString *value = [[NSString alloc] initWithBytes:valueData
+                                                               length:valueLength
+                                                             encoding:NSUTF8StringEncoding];
+                    
+                    if (key && value) {
+                        [data setObject:value forKey:key];
+                    }
+                }
+            }
+            sqlite3_finalize(statement);
+        }
+        sqlite3_close(database);
     }
-
-    // Create path to dest
-    NSString* destDir = [dest stringByDeletingLastPathComponent];
-    NSError* dirError = nil;
-    if (![fileManager createDirectoryAtPath:destDir
-              withIntermediateDirectories:YES
-                             attributes:nil
-                                  error:&dirError]) {
-        NSLog(@"%@ Error creating target directory %@: %@", TAG, destDir, dirError);
-        return NO;
-    }
-
-    // Copy src to dest
-    NSError* copyError = nil;
-    BOOL result = [fileManager copyItemAtPath:src toPath:dest error:&copyError];
-
-    if (!result) {
-        NSLog(@"%@ Failed to copy %@ to %@: %@", TAG, src, dest, copyError);
-    } else {
-        NSLog(@"%@ Successfully copied %@ to %@", TAG, src, dest);
-    }
-
-    return result;
+    
+    return data;
 }
 
 /**
