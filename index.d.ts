@@ -1,14 +1,4 @@
-interface CordovaPlugins {
-  MigrateLocalStorage: {
-    /**
-     * Migrates localStorage data from UIWebView to WKWebView
-     * @returns Promise that resolves to true if migration was successful
-     */
-    migrate(): Promise<boolean>;
-  };
-}
-
-interface CordovaMigrateLocalStorage {
+interface MigrateLocalStorageInterface {
   /**
    * Migrates localStorage data from UIWebView to WKWebView
    * @returns Promise that resolves to true if migration was successful
@@ -16,15 +6,11 @@ interface CordovaMigrateLocalStorage {
   migrate(): Promise<boolean>;
 }
 
-interface Cordova {
-  plugins: CordovaPlugins;
+// Extend the global Window interface
+declare global {
+  interface Window {
+    MigrateLocalStorage: MigrateLocalStorageInterface;
+  }
 }
 
-interface Window {
-  cordova: Cordova;
-  MigrateLocalStorage?: CordovaMigrateLocalStorage;
-}
-
-declare const MigrateLocalStorage: CordovaMigrateLocalStorage;
-
-export = MigrateLocalStorage;
+export {};

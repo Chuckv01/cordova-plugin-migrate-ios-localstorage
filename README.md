@@ -23,16 +23,17 @@ cordova plugin add https://github.com/Chuckv01/cordova-plugin-migrate-ios-locals
 The plugin provides a simple API to migrate localStorage data. Call the migrate method early in your app initialization:
 
 ```javascript
+import 'cordova-plugin-migrate-ios-localstorage';
+...
+
 document.addEventListener('deviceready', function() {
-  if (cordova.platformId === 'ios') {
-    cordova.plugins.MigrateLocalStorage.migrate()
-      .then(success => {
-        console.log('Migration completed successfully: ' + success);
-      })
-      .catch(error => {
-        console.error('Migration failed: ' + error);
-      });
-  }
+  window.MigrateLocalStorage.migrate()
+    .then(success => {
+      console.log('Migration completed successfully: ' + success);
+    })
+    .catch(error => {
+      console.error('Migration failed: ' + error);
+    });
 }, false);
 ```
 
