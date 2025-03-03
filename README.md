@@ -9,13 +9,13 @@ When migrating a Cordova app from UIWebView to WKWebView, localStorage data is s
 ## Installation
 
 ```bash
-cordova plugin add cordova-plugin-migrate-localstorage
+cordova plugin add cordova-plugin-migrate-ios-localstorage
 ```
 
 Or directly from GitHub:
 
 ```bash
-cordova plugin add https://github.com/maklesoft/cordova-plugin-migrate-localstorage.git
+cordova plugin add https://github.com/Chuckv01/cordova-plugin-migrate-ios-localstorage.git
 ```
 
 ## Usage
