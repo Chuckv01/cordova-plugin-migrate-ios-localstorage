@@ -25,26 +25,24 @@ The plugin provides a simple API to migrate localStorage data. Call the migrate 
 ```javascript
 document.addEventListener('deviceready', function() {
   if (cordova.platformId === 'ios') {
-    cordova.plugins.MigrateLocalStorage.migrate(
-      function(success) {
+    cordova.plugins.MigrateLocalStorage.migrate()
+      .then(success => {
         console.log('Migration completed successfully: ' + success);
-      },
-      function(error) {
+      })
+      .catch(error => {
         console.error('Migration failed: ' + error);
-      }
-    );
+      });
   }
 }, false);
 ```
 
 ### API
 
-`migrate(successCallback, errorCallback)`
+`migrate()`
 
 Migrates localStorage data from UIWebView to WKWebView.
 
-- *successCallback*: Function called when migration completes (receives boolean indicating success)
-- *errorCallback*: Function called when migration fails (receives error message)
+Returns a Promise that resolves to a boolean indicating success or rejects with an error.
 
 ## How it Works
 
@@ -56,9 +54,8 @@ Migrates localStorage data from UIWebView to WKWebView.
 
 ## Requirements
 
-- Cordova iOS 4.0.0+
+- Capacitor OR Cordova iOS 4.0.0+
 - iOS 9.0+
-- Capacitor
 
 ## License
 

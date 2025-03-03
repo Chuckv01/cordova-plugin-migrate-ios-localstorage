@@ -1,47 +1,58 @@
 var exec = require('cordova/exec');
 
 var MigrateLocalStorage = {
-  migrate: function (successCallback, errorCallback) {
-    try {
-      // Check if localStorage already has data
-      if (localStorage.length > 0) {
-        console.log('MigrateLocalStorage: localStorage already has data, skipping migration');
-        successCallback(true);
-        return;
-      }
-
-      console.log('MigrateLocalStorage: Setting initialization marker in localStorage');
-      var initValue = 'init-' + Date.now();
-      localStorage.setItem('__MigrateLocalStorageInit', initValue);
-
-      // Begin polling to check when storage is ready
-      this._pollForStorageReady(initValue, function (isReady) {
-        if (isReady) {
-          console.log('MigrateLocalStorage: localStorage is ready, proceeding with migration');
-
-          // Call the native migration function
-          exec(function (success) {
-            if (success) {
-              console.log('MigrateLocalStorage: Migration successful');
-              // Force WKWebView to reload localStorage data
-              setTimeout(() => {
-                console.log('MigrateLocalStorage: Forcing reload of localStorage');
-                var refreshKey = '__refresh_' + Date.now();
-                localStorage.setItem(refreshKey, 'true');
-                localStorage.removeItem(refreshKey);
-                successCallback(success);
-              }, 1000);
-            }
-          }, errorCallback, 'MigrateLocalStorage', 'migrate', []);
-        } else {
-          console.error('MigrateLocalStorage: localStorage not ready after maximum attempts');
-          errorCallback('Storage initialization failed');
+  /**
+   * Migrates localStorage data from UIWebView to WKWebView
+   * @returns {Promise<boolean>} Promise that resolves to true if migration was successful
+   */
+  migrate: function() {
+    return new Promise((resolve, reject) => {
+      try {
+        // Check if localStorage already has data
+        if (localStorage.length > 0) {
+          console.log('MigrateLocalStorage: localStorage already has data, skipping migration');
+          resolve(true);
+          return;
         }
-      });
-    } catch (err) {
-      console.error('MigrateLocalStorage: Error initializing localStorage:', err);
-      errorCallback(err);
-    }
+
+        console.log('MigrateLocalStorage: Setting initialization marker in localStorage');
+        var initValue = 'init-' + Date.now();
+        localStorage.setItem('__MigrateLocalStorageInit', initValue);
+
+        // Begin polling to check when storage is ready
+        this._pollForStorageReady(initValue, function(isReady) {
+          if (isReady) {
+            console.log('MigrateLocalStorage: localStorage is ready, proceeding with migration');
+
+            // Call the native migration function
+            exec(function(success) {
+              if (success) {
+                console.log('MigrateLocalStorage: Migration successful');
+                // Force WKWebView to reload localStorage data
+                setTimeout(() => {
+                  console.log('MigrateLocalStorage: Forcing reload of localStorage');
+                  var refreshKey = '__refresh_' + Date.now();
+                  localStorage.setItem(refreshKey, 'true');
+                  localStorage.removeItem(refreshKey);
+                  resolve(success);
+                }, 1000);
+              } else {
+                resolve(false);
+              }
+            }, function(error) {
+              console.error('MigrateLocalStorage: Native migration failed:', error);
+              reject(error);
+            }, 'MigrateLocalStorage', 'migrate', []);
+          } else {
+            console.error('MigrateLocalStorage: localStorage not ready after maximum attempts');
+            reject('Storage initialization failed');
+          }
+        });
+      } catch (err) {
+        console.error('MigrateLocalStorage: Error initializing localStorage:', err);
+        reject(err);
+      }
+    });
   },
 
   _pollForStorageReady: function (expectedValue, callback) {
