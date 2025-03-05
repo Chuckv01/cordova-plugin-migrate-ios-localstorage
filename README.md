@@ -1,4 +1,6 @@
-# DEPRECATED! See https://github.com/Chuckv01/capacitor-localstorage-migration instead.
+# DEPRECATED! 
+
+See https://github.com/Chuckv01/capacitor-localstorage-migration for a better solution.
 
 # Cordova Plugin: Migrate iOS LocalStorage
 
